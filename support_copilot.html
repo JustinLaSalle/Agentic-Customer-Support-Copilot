@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Support Copilot — live agent demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F8FA; --panel: #FFFFFF; --border: #E4E7EC;
+    --ink: #1A1D24; --ink-dim: #6B7280;
+    --brand: #2F6FED; --brand-dim: #EAF0FE;
+    --good: #16A34A; --warn: #D97706; --bad: #DC2626;
+    --font: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+    box-sizing: border-box; padding-top: env(safe-area-inset-top,0px); padding-bottom: env(safe-area-inset-bottom,0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161B; --panel: #1C1F26; --border: #2A2E37; --ink: #F0F1F4; --ink-dim: #9AA1AE; --brand-dim: #1E2A47;
+    }
+  }
+  :root[data-theme="dark"] { --bg: #14161B; --panel: #1C1F26; --border: #2A2E37; --ink: #F0F1F4; --ink-dim: #9AA1AE; --brand-dim: #1E2A47; }
+  * { box-sizing: border-box; }
+  html { height: 100%; }
+  body { margin:0; min-height:100%; background: var(--bg); color: var(--ink); font-family: var(--font); -webkit-font-smoothing: antialiased; }
+
+  .wrap { max-width: 680px; margin: 0 auto; padding: 28px 16px 40px; }
+
+  header { margin-bottom: 20px; }
+  .eyebrow { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.1em; color: var(--brand); margin-bottom: 8px; text-transform: uppercase; }
+  h1 { font-size: 24px; font-weight: 700; margin: 0 0 6px; }
+  .sub { color: var(--ink-dim); font-size: 14px; line-height: 1.5; max-width: 56ch; }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+
+  .chat-log { padding: 18px 18px 4px; display: flex; flex-direction: column; gap: 14px; min-height: 200px; max-height: 55vh; overflow-y: auto; }
+
+  .msg { display: flex; gap: 10px; max-width: 88%; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .avatar {
+    width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0; display:flex; align-items:center; justify-content:center;
+    font-size: 12px; font-weight: 700;
+  }
+  .msg.user .avatar { background: var(--ink); color: var(--panel); }
+  .msg.agent .avatar { background: var(--brand); color: #fff; }
+  .bubble { padding: 11px 14px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+  .msg.user .bubble { background: var(--brand); color: #fff; border-bottom-right-radius: 3px; }
+  .msg.agent .bubble { background: var(--brand-dim); color: var(--ink); border-bottom-left-radius: 3px; }
+
+  .trace {
+    align-self: flex-start; max-width: 88%; margin-left: 38px; font-family: var(--font-mono); font-size: 11.5px;
+    color: var(--ink-dim); display: flex; flex-direction: column; gap: 5px;
+  }
+  .trace .step { display: flex; align-items: center; gap: 7px; opacity: 0; animation: stepIn 0.3s ease forwards; }
+  .trace .step .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--border); flex-shrink: 0; }
+  .trace .step.done .dot { background: var(--good); }
+  @keyframes stepIn { to { opacity: 1; } }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 9px;
+    border-radius: 20px; margin-top: 8px;
+  }
+  .badge.resolved { background: rgba(22,163,74,0.12); color: var(--good); }
+  .badge.escalated { background: rgba(217,119,6,0.14); color: var(--warn); }
+
+  .composer { border-top: 1px solid var(--border); padding: 14px 16px; }
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chip {
+    font-size: 12px; background: var(--bg); border: 1px solid var(--border); color: var(--ink-dim);
+    padding: 6px 12px; border-radius: 20px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--brand); color: var(--brand); }
+  .input-row { display: flex; gap: 8px; }
+  textarea#msgInput {
+    flex: 1; resize: none; border: 1px solid var(--border); border-radius: 10px; padding: 11px 13px;
+    font-family: var(--font); font-size: 14px; color: var(--ink); background: var(--bg); min-height: 44px; max-height: 120px;
+  }
+  textarea#msgInput:focus { outline: 2px solid var(--brand); outline-offset: -1px; border-color: var(--brand); }
+  button#sendBtn {
+    background: var(--brand); color: #fff; border: none; border-radius: 10px; padding: 0 20px;
+    font-family: var(--font); font-weight: 600; font-size: 14px; cursor: pointer; flex-shrink: 0;
+  }
+  button#sendBtn:hover:not(:disabled) { filter: brightness(1.08); }
+  button#sendBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .config-note {
+    margin-top: 18px; font-size: 12px; color: var(--ink-dim); line-height: 1.6; padding: 12px 14px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  }
+  .config-note strong { color: var(--ink); }
+
+  footer.credit { text-align: center; margin-top: 26px; font-size: 11px; color: var(--ink-dim); opacity: 0.7; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Live Agent Demo</div>
+    <h1>Support Copilot</h1>
+    <p class="sub">Type a message as a customer. The agent checks the (simulated) account and knowledge base, decides whether it can resolve it directly or should escalate to a human — and shows its reasoning before answering.</p>
+  </header>
+
+  <div class="panel">
+    <div class="chat-log" id="chatLog"></div>
+    <div class="composer">
+      <div class="chips" id="chips"></div>
+      <div class="input-row">
+        <textarea id="msgInput" placeholder="Type a customer message..." rows="1"></textarea>
+        <button id="sendBtn">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="config-note">
+    <strong>How this works:</strong> the agent is given a small simulated customer account and a short policy knowledge base (below) as its only source of truth — it can't see real data, and it's instructed to say so rather than invent an answer if something isn't covered. This is the same pattern a real deployment would use, just with mock data standing in for a real CRM/helpdesk connection.
+  </div>
+
+  <footer class="credit">Support Copilot — built with the Claude API</footer>
+</div>
+
+<script>
+/* ---------------- Simulated backend the agent is grounded in ---------------- */
+const MOCK_ACCOUNT = {
+  name: "Jordan Ellis",
+  plan: "Pro",
+  lastOrder: "#48213, delivered Sept 14",
+  memberSince: "2023"
+};
+const MOCK_KB = [
+  "Refund policy: full refund within 30 days of delivery, no questions asked. After 30 days, store credit only.",
+  "Password resets: use the 'Forgot password' link on the login page. Reset links expire after 1 hour.",
+  "Shipping: standard shipping takes 5-7 business days; express is 2-3 business days.",
+  "Cancellations: subscriptions can be cancelled anytime from Account > Billing; takes effect at the end of the current billing period, no partial refunds for the current period."
+];
+
+const chatLog = document.getElementById('chatLog');
+const input = document.getElementById('msgInput');
+const sendBtn = document.getElementById('sendBtn');
+
+const STARTERS = [
+  "My order arrived damaged, can I get a refund?",
+  "I can't log into my account",
+  "How do I cancel my subscription?",
+  "Your product is garbage and I want to speak to a manager"
+];
+const chipsEl = document.getElementById('chips');
+STARTERS.forEach(s => {
+  const c = document.createElement('button');
+  c.className = 'chip'; c.type = 'button'; c.textContent = s;
+  c.addEventListener('click', () => { input.value = s; input.focus(); });
+  chipsEl.appendChild(c);
+});
+
+addAgentBubble("Hi! I'm a support copilot demo. Try one of the examples below, or type your own message as if you were a customer.", null);
+
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+});
+sendBtn.addEventListener('click', sendMessage);
+
+function addUserBubble(text) {
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="avatar">${escapeHtml(MOCK_ACCOUNT.name.split(' ').map(n=>n[0]).join(''))}</div><div class="bubble"></div>`;
+  div.querySelector('.bubble').textContent = text;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function addAgentBubble(text, badge) {
+  const div = document.createElement('div');
+  div.className = 'msg agent';
+  const badgeHtml = badge
+    ? `<div class="badge ${badge.type}">${badge.type === 'resolved' ? '✓' : '↑'} ${escapeHtml(badge.label)}</div>`
+    : '';
+  div.innerHTML = `<div class="avatar">AI</div><div class="bubble"><div class="btext"></div>${badgeHtml}</div>`;
+  div.querySelector('.btext').textContent = text;
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return div;
+}
+
+function addTrace() {
+  const div = document.createElement('div');
+  div.className = 'trace';
+  chatLog.appendChild(div);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return div;
+}
+
+async function stepIn(traceEl, label, delay) {
+  await new Promise(r => setTimeout(r, delay));
+  const step = document.createElement('div');
+  step.className = 'step';
+  step.innerHTML = `<span class="dot"></span><span>${escapeHtml(label)}</span>`;
+  traceEl.appendChild(step);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  await new Promise(r => setTimeout(r, 30));
+  step.classList.add('done');
+  return step;
+}
+
+let conversation = []; // { role: 'customer'|'agent', text }
+
+function buildPrompt(customerMessage) {
+  const historyText = conversation.length
+    ? conversation.map(m => `${m.role === 'customer' ? 'Customer' : 'Agent'}: ${m.text}`).join('\n')
+    : '(this is the first message in the conversation)';
+
+  return `You are a customer support agent. You can ONLY use the information below as your source of truth — never invent account details, policies, or facts that aren't in it. If the customer asks about something not covered here, say honestly that you don't have that information rather than guessing.
+
+CUSTOMER ACCOUNT (simulated):
+Name: ${MOCK_ACCOUNT.name}
+Plan: ${MOCK_ACCOUNT.plan}
+Last order: ${MOCK_ACCOUNT.lastOrder}
+Member since: ${MOCK_ACCOUNT.memberSince}
+
+KNOWLEDGE BASE (simulated):
+${MOCK_KB.map((k,i) => `${i+1}. ${k}`).join('\n')}
+
+Conversation so far:
+${historyText}
+
+New customer message: "${customerMessage}"
+
+You have the full conversation above — use it. If the customer is confirming, following up on, or referencing something from earlier in this conversation, you already have that context; don't say you're missing it or escalate for that reason.
+
+Decide whether you can resolve this directly using only the info above, or whether it should be escalated to a human.
+
+Resolve it directly whenever the knowledge base clearly covers the situation — a request for a refund within policy, a password reset question, a shipping timeline question, a straightforward cancellation — even though it involves money or an account change. Confidently answering a policy-covered question is the whole point of this agent; don't escalate just because a refund or billing is mentioned.
+
+Only escalate if: the customer is genuinely angry, hostile, or threatening (not just disappointed); the request requires a judgment call the policy doesn't clearly answer (e.g. an exception to stated policy, a dispute about what happened); or you genuinely don't have enough information in the knowledge base above to answer confidently. Most everyday requests should resolve directly — escalation should be the less common outcome, not the default.
+
+Respond ONLY with valid JSON in exactly this shape:
+{
+  "steps": ["short step like 'Checked account details'", "short step like 'Searched knowledge base for refund policy'"],
+  "resolution": "resolved" or "escalated",
+  "reply": "the actual reply to send the customer — warm, concise, grounded only in the info above"
+}
+
+Keep "steps" to 2-3 short items describing what you checked, in the order you checked it.`;
+}
+
+async function sendMessage() {
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  sendBtn.disabled = true;
+
+  addUserBubble(text);
+  const traceEl = addTrace();
+
+  try {
+    const sample = await claude.use('sample');
+    if (!sample) throw { code: 'not_available', message: 'AI access isn\'t available in this view.' };
+
+    const resultPromise = sample.json(buildPrompt(text), { modelTier: 'default' });
+
+    // Show a couple of generic "working" steps while the real call runs, then reconcile with actual steps after
+    await stepIn(traceEl, 'Checking account details...', 250);
+    await stepIn(traceEl, 'Searching knowledge base...', 500);
+
+    const result = await resultPromise;
+
+    // Replace generic steps with the agent's actual reasoning trace
+    traceEl.innerHTML = '';
+    for (const s of (result.steps || [])) {
+      await stepIn(traceEl, s, 120);
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+    const badge = result.resolution === 'escalated'
+      ? { type: 'escalated', label: 'Escalated to human agent' }
+      : { type: 'resolved', label: 'Resolved' };
+    addAgentBubble(result.reply || "I wasn't able to generate a reply.", badge);
+
+    conversation.push({ role: 'customer', text: text });
+    conversation.push({ role: 'agent', text: result.reply || '' });
+  } catch (err) {
+    console.error(err);
+    traceEl.innerHTML = '';
+    const code = err && err.code ? err.code : 'unknown';
+    addAgentBubble(`Something went wrong (${code}). Try sending your message again.`, null);
+  } finally {
+    sendBtn.disabled = false;
+  }
+}
+
+function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str || ''; return d.innerHTML; }
+</script>
+</body>
+</html>
